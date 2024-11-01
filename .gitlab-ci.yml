@@ -1,0 +1,45 @@
+# This is a GitLab CI configuration to build the project as a docker image
+# Kaniko is used for docker image build and push steps and various variables are passed as build_args
+# Author: Vasilis Giannoulis <vgiannoul@2square.gr>
+
+stages:
+  - build_stage
+  - build_prod
+
+build_stage:
+  stage: build_stage
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  variables:
+    GODEBUG: "http2client=0"
+  only:
+    changes:
+      - "docroot/**/*"
+      - "images/**/**/*"
+    refs:
+      - master
+  script:
+    - export TIMESTAMP=$(date +%s)
+    - cp -f $STAGE_ENV docroot/.env
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - export $(grep -v '^#' .env | xargs -0 ) && IMAGE_TAG=$CI_COMMIT_SHORT_SHA NODE_BASE_IMAGE_TAG=$NODE_TAG NODE_IMAGE=registry.gitlab.com/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/node:${CI_COMMIT_SHORT_SHA}-${TIMESTAMP} /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/images/node/Dockerfile --build-arg=NODE_BASE_IMAGE_TAG --destination registry.gitlab.com/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/node:$CI_COMMIT_SHORT_SHA-${TIMESTAMP} --destination registry.gitlab.com/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/node:latest
+
+
+build_prod:
+  stage: build_prod
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  variables:
+    GODEBUG: "http2client=0"
+  only:
+    changes:
+      - "docroot/**/*"
+      - "images/**/**/*"
+    refs:
+      - tags
+  script:
+    - cp -f $PROD_ENV docroot/.env
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - export $(grep -v '^#' .env | xargs -0 ) && IMAGE_TAG=$CI_COMMIT_SHORT_SHA NODE_BASE_IMAGE_TAG=$NODE_TAG NODE_IMAGE=registry.gitlab.com/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/node:${CI_COMMIT_SHORT_SHA} /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/images/node/Dockerfile --build-arg=NODE_BASE_IMAGE_TAG --destination registry.gitlab.com/$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME/node:$CI_COMMIT_REF_NAME

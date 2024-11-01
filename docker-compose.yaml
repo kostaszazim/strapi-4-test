@@ -1,0 +1,126 @@
+version: "3"
+services:
+  strapi:
+    container_name: "${PROJECT_NAME}_node"
+    build:
+      context: images/strapi
+    entrypoint: ['tail', '-f', '/dev/null']
+    environment:
+      WEBSITE_PRODUCTION_URL: $WEBSITE_PRODUCTION_URL
+      WEBSITE_STAGING_URL: $WEBSITE_STAGING_URL
+      SMTP_HOST: $SMTP_HOST
+      SMTP_PORT: $SMTP_PORT
+      DEBUG: $DEBUG
+      DEBUG_SHOW_HIDDEN: "enabled"
+      SMTP_USERNAME: $SMTP_USERNAME
+      SMTP_PASSWORD: $SMTP_PASSWORD
+      SLUG_UPDATE_NOTIFICATIONS_RECIPIENTS: $SLUG_UPDATE_NOTIFICATIONS_RECIPIENTS
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
+      PUBLIC_URL: "https://${PROJECT_BASE_URL}"
+      ADMIN_URL: "https://${PROJECT_BASE_URL}/admin"
+      NODE_ENV: $NODE_ENV
+      DATABASE_CLIENT: $DATABASE_CLIENT
+      DATABASE_HOST: $DATABASE_HOST
+      DATABASE_PORT: $DATABASE_PORT
+      DATABASE_NAME: $DATABASE_NAME
+      DATABASE_USERNAME: $DATABASE_USERNAME
+      DATABASE_PASSWORD: $DATABASE_PASSWORD
+      AWS_ENDPOINT: $AWS_ENDPOINT
+      AWS_BASE_URL: "$AWS_ENDPOINT/$AWS_BUCKET_NAME"
+      AWS_FORCE_PATH_STYLE: $AWS_FORCE_PATH_STYLE
+      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+      AWS_REGION: $AWS_REGION
+      AWS_BUCKET_NAME: $AWS_BUCKET_NAME
+    volumes:
+      - backend:/srv/app
+    networks:
+      - default
+      - traefik
+    dns:
+      - 172.16.238.44
+      - 8.8.8.8
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${PROJECT_NAME}_strapi.entrypoints=https"
+      - "traefik.http.routers.${PROJECT_NAME}_strapi.tls=true"
+      - "traefik.http.services.${PROJECT_NAME}_strapi.loadbalancer.server.port=1337"
+      - "traefik.http.routers.${PROJECT_NAME}_strapi.service=${PROJECT_NAME}_strapi@docker"
+      - "traefik.http.routers.${PROJECT_NAME}_strapi.rule=Host(`${PROJECT_BASE_URL}`)"
+      - "traefik.docker.network=traefik_proxy"
+  postgres:
+    image: wodby/postgres:$POSTGRES_TAG
+    container_name: "${PROJECT_NAME}_postgres"
+    stop_grace_period: 30s
+    environment:
+      POSTGRES_PASSWORD: $DB_PASSWORD
+      POSTGRES_DB: $DB_NAME
+      POSTGRES_USER: $DB_USER
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks:
+      - default
+      - traefik
+  pgadmin:
+    image: dpage/pgadmin4:$PGADMIN_TAG
+    stdin_open: true
+    tty: true
+    container_name: "${PROJECT_NAME}_pgadmin"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: $PGADMIN_DEFAULT_EMAIL
+      PGADMIN_DEFAULT_PASSWORD: $PGADMIN_DEFAULT_PASSWORD
+      PGADMIN_CONFIG_MAX_SESSION_IDLE_TIME: 120
+      PGADMIN_CONFIG_SESSION_EXPIRATION_TIME: 7
+      PGADMIN_CONFIG_CHECK_SESSION_FILES_INTERVAL: 24
+    volumes:
+      - 'pgadmin-data:/var/lib/pgadmin'
+    ports:
+      - 8081:80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${PROJECT_NAME}_pgadmin.entrypoints=https"
+      - "traefik.http.routers.${PROJECT_NAME}_pgadmin.tls=true"
+      - "traefik.http.services.${PROJECT_NAME}_pgadmin.loadbalancer.server.port=80"
+      - "traefik.http.routers.${PROJECT_NAME}_pgadmin.service=${PROJECT_NAME}_pgadmin@docker"
+      - "traefik.http.routers.${PROJECT_NAME}_pgadmin.rule=Host(`pgadmin.${PROJECT_BASE_URL}`)"
+    networks:
+      - traefik
+
+
+x-mutagen:
+  sync:
+    defaults:
+      ignore:
+        vcs: true
+        paths:
+          - .DS_Store
+          - .history
+          - .idea
+          - vendor
+          - node_modules
+          - /storage/framework
+          - /storage/logs
+    backend:
+      alpha: "docroot"
+      beta: "volume://backend"
+      configurationBeta:
+        permissions:
+          defaultFileMode: 0644
+          defaultDirectoryMode: 0755
+          defaultOwner: "id:1000"
+          defaultGroup: "id:82"
+
+volumes:
+  backend:
+    name: ${PROJECT_NAME}-backend
+  mariadb-data:
+    name: ${PROJECT_NAME}-mariadb
+  postgres:
+    name: ${PROJECT_NAME}-postgres
+  pgadmin-data:
+    name: ${PROJECT_NAME}-pgadmin-data
+
+networks:
+  traefik:
+    name: traefik_proxy
+    external: true

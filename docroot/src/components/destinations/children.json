@@ -1,0 +1,26 @@
+{
+  "collectionName": "components_destinations_children",
+  "info": {
+    "displayName": "children",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "children": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::destination.destination"
+    },
+    "children_section_heading": {
+      "type": "string"
+    },
+    "custom_children_map_image": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    }
+  }
+}
